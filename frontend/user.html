@@ -5,6 +5,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Todo App</title>
+    
+<script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <script src="user.js"></script>
 <style>
 *{
     margin:0;
@@ -112,25 +115,25 @@ button:hover{
 
         <!-- Left Section -->
         <div class="left">
-            <h2>Your Todos</h2>
+          
 
             <div id="todo-list">
-                <!-- Todos will be inserted here using DOM -->
+                
             </div>
         </div>
 
         <!-- Right Section -->
         <div class="right">
 
-            <button id="create-btn">
+            <button id="create-btn" onclick="showInputs('create')">
                 Create Todo
             </button>
 
-            <button id="update-btn">
+            <button id="update-btn" onclick="showInputs('update')">
                 Update Todo
             </button>
 
-            <button id="delete-btn">
+            <button id="delete-btn" onclick="showInputs('delete')">
                 Delete Todo
             </button>
 
