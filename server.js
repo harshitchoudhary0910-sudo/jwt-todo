@@ -2,24 +2,37 @@ const express = require('express');
 const fs = require('fs/promises');
 const app = express();
 const path = require('path');
-const jwt=require("jsonwebtoken")
+const jwt = require("jsonwebtoken")
 
 app.use(express.json());
 
+app.get("/main", (req, res) => {
+    res.sendFile(path.join(__dirname, "/frontend/user.html"));
+})
 
 
-
-app.get("/",(req,res)=>{
-    res.sendFile(path.join(__dirname,"/index.html"));
+app.get("/", (req, res) => {
+    res.sendFile(path.join(__dirname, "/frontend/index.html"));
 });
 
-app.post("/signup",async (req,res)=>{
-    const username=req.body.username;
-    const password=req.body.password;
-    const data = await fs.readFile("./data/users.json", "utf8");
-    const users=JSON.parse(data);
+app.get("/signin", (req, res) => {
+    res.sendFile(path.join(__dirname, "/frontend/signin.html"));
+});
 
-    const check=users.find((user)=>{
+app.get("/signup", (req, res) => {
+    res.sendFile(path.join(__dirname, "/frontend/signup.html"));
+});
+
+
+
+
+app.post("/signup", async (req, res) => {
+    const username = req.body.username;
+    const password = req.body.password;
+    const data = await fs.readFile("./data/users.json", "utf8");
+    const users = JSON.parse(data);
+
+    const check = users.find((user) => {
         return user.username === username;
     });
 
@@ -30,28 +43,26 @@ app.post("/signup",async (req,res)=>{
     users.push({ username, password });
 
     await fs.writeFile("./data/users.json", JSON.stringify(users));
+    res.status(201).json({ message: "User created successfully" });
 
 });
 
-app.post("/signin",async (req,res)=>{
+app.post("/signin", async (req, res) => {
 
-    const username=req.body.username;
-    const password=req.body.password;
+    const username = req.body.username;
+    const password = req.body.password;
     const data = await fs.readFile("./data/users.json", "utf8");
-    const users=JSON.parse(data);
+    const users = JSON.parse(data);
 
-    const check=users.find((user)=>{
+    const check = users.find((user) => {
         return user.username === username && user.password === password;
-       
-
-
     });
 
-    if(!check){
+    if (!check) {
         return res.status(400).json({ message: "User does not exist" });
 
     }
-        // json web tokens
+    // json web tokens
     const token = jwt.sign({
         username: username
     }, password);
@@ -63,7 +74,10 @@ app.post("/signin",async (req,res)=>{
 
 })
 
-app.listen(3000,()=>{
+
+
+
+app.listen(3000, () => {
     console.log("Server is running on port 3000");
 })
 
