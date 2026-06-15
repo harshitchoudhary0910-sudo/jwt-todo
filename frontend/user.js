@@ -1,11 +1,11 @@
 
 
 window.onload =async function () {
-    const data= await axios.get("/todos",{
-        headers: {
-            token: localStorage.getItem("token")
-        }
-    });
+    const data= await axios.get("/todos")//,{
+       // headers: {
+            //token: localStorage.getItem("token")
+       // }
+   // });
     const todos=data.data.todos;
 
     todos.forEach(todo => {
@@ -103,12 +103,12 @@ async function createTodo(todo) {
         "/todos",
         {
             todo: todo
-        },
-        {
-            headers: {
-                token: localStorage.getItem("token")
-            }
         }
+        // {
+        //     headers: {
+        //         token: localStorage.getItem("token")
+        //     }
+        // }
     );
 
     if (response.status === 200) {
@@ -124,9 +124,9 @@ async function deleteTodo(id) {
     const response = await axios.delete(
         "/todos",
         {
-            headers: {
-                token: localStorage.getItem("token")
-            },
+          //  headers: {
+          //      token: localStorage.getItem("token")
+          //  },
             data: {
                 id: Number(id)
             }
@@ -144,12 +144,12 @@ async function updateTodo(id, todo) {
         {
             id: Number(id),
             todo: todo
-        },
-        {
-            headers: {
-                token: localStorage.getItem("token")
-            }
         }
+     //   {
+      //      headers: {
+     //           token: localStorage.getItem("token")
+     //       }
+     //   }
     );
 
     if (response.status === 200) {

@@ -3,11 +3,17 @@ const fs = require('fs/promises');
 const app = express();
 const path = require('path');
 const jwt = require("jsonwebtoken")
+const cookieParser = require("cookie-parser");
+
+app.use(cookieParser());
 const {authenticateToken}=require("./middleware.js");
+
 app.use(express.static(path.join(__dirname, "frontend")));
 
-
 app.use(express.json());
+
+
+
 
 app.get("/main", (req, res) => {
     res.sendFile(path.join(__dirname, "/frontend/user.html"));
@@ -116,17 +122,6 @@ app.put("/todos",authenticateToken, async (req,res)=>{
     }
 });
 
-
-
-
-
-
-
-
-
-
-
-
 app.post("/signup", async (req, res) => {
     const username = req.body.username;
     const password = req.body.password;
@@ -167,6 +162,7 @@ app.post("/signin", async (req, res) => {
     });
 
     if (!check) {
+
         return res.status(400).json({ message: "User does not exist" });
 
     }
@@ -175,12 +171,15 @@ app.post("/signin", async (req, res) => {
         username: username
     }, "harshit123");
 
+    res.cookie("token", token);
+    
     res.json({
-        token: token
+        // token: token,
+        message: "User signed in successfully",
     })
 
 
-})
+});
 
 
 
