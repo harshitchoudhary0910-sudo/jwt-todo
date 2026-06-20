@@ -1,23 +1,74 @@
 
-
-window.onload =async function () {
-    const data= await axios.get("/todos")//,{
-       // headers: {
-            //token: localStorage.getItem("token")
-       // }
-   // });
-    const todos=data.data.todos;
-
-    todos.forEach(todo => {
-        const todoItem= document.createElement("div");
-        todoItem.id = "todo-" + todo.id;
-        todoItem.appendChild(document.createTextNode(todo.id + ". " + todo.todo));
-        document.getElementById("todo-list").appendChild(todoItem);
-    });
-       
+window.onload = async function () {
+    await fetchTodos();
 };
 
-function showInputs(type) {
+async function fetchTodos() {
+    try {
+        const data = await axios.get("/todos");
+        const todos = data.data.todos;
+        const todoList = document.getElementById("todo-list");
+        todoList.innerHTML = "";
+
+        todos.forEach(todo => {
+            const todoCard = document.createElement("div");
+            todoCard.className = "todo-card";
+            todoCard.id = "todo-" + todo._id;
+
+            const todoHeader = document.createElement("div");
+            todoHeader.className = "todo-header";
+            todoHeader.innerHTML = `<span>${escapeHtml(todo.title)}</span> <span>&#9662;</span>`;
+            todoHeader.onclick = () => {
+                const content = todoCard.querySelector(".todo-content");
+                if (content.style.display === "block") {
+                    content.style.display = "none";
+                    todoHeader.querySelector("span:last-child").innerHTML = "&#9662;";
+                } else {
+                    content.style.display = "block";
+                    todoHeader.querySelector("span:last-child").innerHTML = "&#9660;";
+                }
+            };
+
+            const todoContent = document.createElement("div");
+            todoContent.className = "todo-content";
+
+            const todoDesc = document.createElement("div");
+            todoDesc.className = "todo-description";
+            todoDesc.innerText = todo.description || "No description";
+
+            const todoActions = document.createElement("div");
+            todoActions.className = "todo-actions";
+
+            const editBtn = document.createElement("button");
+            editBtn.innerText = "Edit";
+            editBtn.onclick = () => {
+                showInputs("update", { id: todo._id, title: todo.title, description: todo.description });
+            };
+
+            const deleteBtn = document.createElement("button");
+            deleteBtn.innerText = "Completed";
+            deleteBtn.style.background = "#8b2635";
+            deleteBtn.onclick = () => {
+                deleteTodo(todo._id);
+            };
+
+            todoActions.appendChild(editBtn);
+            todoActions.appendChild(deleteBtn);
+
+            todoContent.appendChild(todoDesc);
+            todoContent.appendChild(todoActions);
+
+            todoCard.appendChild(todoHeader);
+            todoCard.appendChild(todoContent);
+
+            todoList.appendChild(todoCard);
+        });
+    } catch (err) {
+        console.error("Error loading todos:", err);
+    }
+}
+
+function showInputs(type, todoData) {
     const old = document.getElementById("input-box");
     if (old) old.remove();
 
@@ -35,33 +86,39 @@ function showInputs(type) {
     box.style.background = "#1b1b1b";
     box.style.boxShadow = "0 8px 22px rgba(0, 0, 0, 0.28)";
 
-    let idInput = null;
-    let todoInput = null;
-
-    if (type === "update" || type === "delete") {
-        idInput = document.createElement("input");
-        idInput.type = "number";
-        idInput.placeholder = "Enter Todo ID";
-        idInput.id = "todo-id";
-        box.appendChild(idInput);
+    const titleInput = document.createElement("input");
+    titleInput.type = "text";
+    titleInput.placeholder = "Enter Title";
+    titleInput.id = "todo-title";
+    titleInput.style.padding = "14px";
+    titleInput.style.fontSize = "16px";
+    titleInput.style.border = "1px solid #444";
+    titleInput.style.borderRadius = "8px";
+    titleInput.style.background = "#242424";
+    titleInput.style.color = "#f2f2f2";
+    if (type === "update") {
+        titleInput.value = todoData.title;
     }
+    box.appendChild(titleInput);
 
-    if (type === "create" || type === "update") {
-        todoInput = document.createElement("input");
-        todoInput.type = "text";
-        todoInput.placeholder = "Enter Todo";
-        todoInput.id = "todo-text";
-        todoInput.style.padding = "14px";
-        todoInput.style.fontSize = "16px";
-        todoInput.style.border = "1px solid #444";
-        todoInput.style.borderRadius = "8px";
-        todoInput.style.background = "#242424";
-        todoInput.style.color = "#f2f2f2";
-        box.appendChild(todoInput);
+    const descInput = document.createElement("textarea");
+    descInput.placeholder = "Enter Description";
+    descInput.id = "todo-desc";
+    descInput.style.padding = "14px";
+    descInput.style.fontSize = "16px";
+    descInput.style.border = "1px solid #444";
+    descInput.style.borderRadius = "8px";
+    descInput.style.background = "#242424";
+    descInput.style.color = "#f2f2f2";
+    descInput.style.resize = "vertical";
+    descInput.style.minHeight = "80px";
+    if (type === "update") {
+        descInput.value = todoData.description;
     }
+    box.appendChild(descInput);
 
     const submit = document.createElement("button");
-    submit.innerText = "Submit";
+    submit.innerText = type === "create" ? "Create" : "Update";
     submit.style.width = "100%";
     submit.style.padding = "12px";
     submit.style.background = "#4f6f52";
@@ -74,15 +131,12 @@ function showInputs(type) {
     cancel.style.background = "#3a3a3a";
     cancel.style.borderRadius = "8px";
 
-    submit.onclick = () => {
+    submit.onclick = async () => {
         if (type === "create") {
-            createTodo(todoInput.value);
+            await createTodo(titleInput.value, descInput.value);
         }
         else if (type === "update") {
-            updateTodo(idInput.value, todoInput.value);
-        }
-        else {
-            deleteTodo(idInput.value);
+            await updateTodo(todoData.id, titleInput.value, descInput.value);
         }
 
         box.remove();
@@ -98,63 +152,60 @@ function showInputs(type) {
     document.querySelector(".right").appendChild(box);
 }
 
-async function createTodo(todo) {
-    const response = await axios.post(
-        "/todos",
-        {
-            todo: todo
-        }
-        // {
-        //     headers: {
-        //         token: localStorage.getItem("token")
-        //     }
-        // }
-    );
+async function createTodo(title, description) {
+    try {
+        const response = await axios.post(
+            "/todos",
+            {
+                title: title,
+                description: description
+            }
+        );
 
-    if (response.status === 200) {
-        const createdTodo = response.data.todo;
-        const todoItem= document.createElement("div");
-        todoItem.id = "todo-" + createdTodo.id;
-        todoItem.appendChild(document.createTextNode(createdTodo.id + ". " + createdTodo.todo));
-        document.getElementById("todo-list").appendChild(todoItem);
+        if (response.status === 200) {
+            await fetchTodos();
+        }
+    } catch (err) {
+        console.error("Error creating todo:", err);
     }
 }
 
 async function deleteTodo(id) {
-    const response = await axios.delete(
-        "/todos",
-        {
-          //  headers: {
-          //      token: localStorage.getItem("token")
-          //  },
-            data: {
-                id: Number(id)
+    try {
+        const response = await axios.delete(`/todos/${id}`);
+
+        if (response.status === 200) {
+            await fetchTodos();
+        }
+    } catch (err) {
+        console.error("Error deleting todo:", err);
+    }
+}
+
+async function updateTodo(id, title, description) {
+    try {
+        const response = await axios.put(
+            `/todos/${id}`,
+            {
+                title: title,
+                description: description
             }
-        }
-    );
+        );
 
-    if (response.status === 200) {
-        document.getElementById("todo-" + id).remove();
+        if (response.status === 200) {
+            await fetchTodos();
+        }
+    } catch (err) {
+        console.error("Error updating todo:", err);
     }
 }
 
-async function updateTodo(id, todo) {
-    const response = await axios.put(
-        "/todos",
-        {
-            id: Number(id),
-            todo: todo
-        }
-     //   {
-      //      headers: {
-     //           token: localStorage.getItem("token")
-     //       }
-     //   }
-    );
-
-    if (response.status === 200) {
-        const todoItem = document.getElementById("todo-" + id);
-        todoItem.textContent = id + ". " + todo;
-    }
+function escapeHtml(text) {
+    if (!text) return "";
+    return text
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
 }
-
