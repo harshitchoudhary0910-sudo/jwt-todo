@@ -1,9 +1,15 @@
+require("dotenv").config();
 const express = require('express');
 const fs = require('fs/promises');
 const app = express();
 const path = require('path');
 const jwt = require("jsonwebtoken")
 const cookieParser = require("cookie-parser");
+const {userModel,todoModel}=require("./models");
+const connectDB = require("./db");
+
+connectDB();
+
 
 app.use(cookieParser());
 const {authenticateToken}=require("./middleware.js");
@@ -35,73 +41,78 @@ app.get("/signup", (req, res) => {
 // authenticated endpoint
 
 app.get("/todos",authenticateToken, async (req, res) => {
-    const username=req.username;
-    const data=await fs.readFile("./data/todo.json", "utf8");
-    const users = JSON.parse(data);
+    const userId=req.userId;
+    const todos=await todoModel.find({ userId });
     return res.json({
-        todos: users[username]
+        todos:todos
     })
    
 })
 
 app.post("/todos", authenticateToken, async (req, res) => {
-    const username=req.username;
-    const todo=req.body.todo;
-    const data=await fs.readFile("./data/todo.json", "utf8");
-    const todoObj = JSON.parse(data);
-    const todos=todoObj[username];
-    const newId =
-    todos.length === 0
-        ? 1
-        : todos[todos.length - 1].id + 1;
-    const createdTodo = {
-        "id":newId,
-        "todo":todo
+    const userId=req.userId;
+    const title=req.body.title;
+    const description=req.body.description;
 
-    };
-    todos.push(createdTodo);
+    const newTodo=await todoModel.create({
+        title:title,
+        description:description,
+        userId:userId
 
-    await fs.writeFile(
-    "./data/todo.json",
-    JSON.stringify(todoObj)
-);
+    });
+
 
 res.json({
     message: "Todo added successfully",
-    todo: createdTodo
+    todoId: newTodo._id
 });
     
 
 });
 
 
-app.delete("/todos",authenticateToken, async (req,res)=>{
-    const userName=req.username;
-    const id=Number(req.body.id);
-    const data=await fs.readFile("./data/todo.json", "utf8");
-    const todoObj = JSON.parse(data);
-    const todos=todoObj[userName];
-    todoObj[userName] = todos.filter(todo => todo.id !== id);
+app.delete("/todos/:id", authenticateToken, async (req, res) => {
+    const userId = req.userId;
+    const todoId = req.params.id;
 
-    await fs.writeFile(
-        "./data/todo.json",
-        JSON.stringify(todoObj)
-    );
+    const deletedTodo = await todoModel.findOneAndDelete({
+        _id: todoId,
+        userId: userId
+    });// mongoose automatically casts the string id to ObjectId
+
+    if (!deletedTodo) {
+        return res.status(404).json({
+            message: "Todo not found"
+        });
+    }
 
     res.json({
-        message: "Todo deleted successfully",
-        id: id
-    })
+        message: "Todo deleted successfully"
+    });
 });
 
-app.put("/todos",authenticateToken, async (req,res)=>{
-    const userName=req.username;
-    const id=Number(req.body.id);
-    const newTodo=req.body.todo;
-    const data=await fs.readFile("./data/todo.json", "utf8");
-    const todoObj = JSON.parse(data);
-    const todos=todoObj[userName];
-    const todo= todos.find(todo => todo.id === id); 
+app.put("/todos/:id", authenticateToken, async (req, res) => {
+    const userId = req.userId;
+    const todoId = req.params.id;
+    const newTitle=req.body.title;
+    const newDescription=req.body.description;
+
+    const todo = await todoModel.findByIdAndUpdate(
+        todoId,
+        { title: newTitle, description: newDescription },
+       
+    );
+
+
+
+    res.json({
+        message: "Todo updated successfully",
+        
+    });
+
+
+
+
 
     if (!todo) {
         return res.status(404).json({
@@ -125,26 +136,21 @@ app.put("/todos",authenticateToken, async (req,res)=>{
 app.post("/signup", async (req, res) => {
     const username = req.body.username;
     const password = req.body.password;
-    const data = await fs.readFile("./data/users.json", "utf8");
-    const users = JSON.parse(data);
 
-    const check = users.find((user) => {
-        return user.username === username;
+    const isExisting= await userModel.findOne({
+        username,
+        password
     });
 
-    if (check) {
+
+    if (isExisting) {
         return res.status(400).json({ message: "User already exists" });
     }
 
-    users.push({ username, password });
-
-    await fs.writeFile("./data/users.json", JSON.stringify(users));
-
-    const todoData = await fs.readFile("./data/todo.json", "utf8");
-    const todoObj = JSON.parse(todoData);
-    todoObj[username] = [];
-    await fs.writeFile("./data/todo.json", JSON.stringify(todoObj));
-
+    const newUser=await userModel.create({
+        username:username,
+        password:password
+    });
 
     res.status(201).json({ message: "User created successfully" });
 
@@ -154,11 +160,10 @@ app.post("/signin", async (req, res) => {
 
     const username = req.body.username;
     const password = req.body.password;
-    const data = await fs.readFile("./data/users.json", "utf8");
-    const users = JSON.parse(data);
 
-    const check = users.find((user) => {
-        return user.username === username && user.password === password;
+    const check = await userModel.findOne({
+        username: username,
+        password: password
     });
 
     if (!check) {
@@ -168,14 +173,17 @@ app.post("/signin", async (req, res) => {
     }
     // json web tokens
     const token = jwt.sign({
-        username: username
-    }, "harshit123");
+        userId: check._id
+    },process.env.JWT_SECRET,{
+        expiresIn:"1h"
+    });
 
     res.cookie("token", token);
     
     res.json({
         // token: token,
-        message: "User signed in successfully",
+        message: "User signed in successfully"
+        
     })
 
 
@@ -184,8 +192,8 @@ app.post("/signin", async (req, res) => {
 
 
 
-app.listen(3000, () => {
-    console.log("Server is running on port 3000");
+app.listen(process.env.PORT, () => {
+    console.log(`Server is running on port ${process.env.PORT}`);
 })
 
 

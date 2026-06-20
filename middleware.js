@@ -12,16 +12,16 @@ function authenticateToken(req, res, next) {
     }
 
     const decoded = jwt.verify(token, "harshit123");
-    const username = decoded.username;
+    const userId = decoded.userId;
     
-    if (!username) {
+    if (!userId) {
         res.status(403).json({
             message: "malformed token"
         })
         return;
     }
 
-    req.username = username;
+    req.userId = userId;
 
     next();
 }
